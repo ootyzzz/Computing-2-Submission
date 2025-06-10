@@ -1,3 +1,5 @@
+import R from "./ramda.js";
+
 /**
  * Ultimate Tic-Tac-Toe Game API
  * Functional game state manipulation and validation
@@ -22,24 +24,16 @@
 * @returns {GameState}
 */
 export function getInitialState() {
- function empty3x3() {
-   return Array.from({ length: 3 }, function () {
-     return Array(3).fill(null);
-   });
- }
+  const empty3x3 = () => R.times(() => R.repeat(null, 3), 3);
 
- return Object.freeze({
-   board: Array.from({ length: 3 }, function () {
-     return Array.from({ length: 3 }, function () {
-       return empty3x3();
-     });
-   }),
-   currentPlayer: "X",
-   nextZone: null,
-   zoneWinners: empty3x3(),
-   gameOver: false,
-   winner: null
- });
+  return Object.freeze({
+    board: R.times(() => R.times(() => empty3x3(), 3), 3),
+    currentPlayer: "X",
+    nextZone: null,
+    zoneWinners: empty3x3(),
+    gameOver: false,
+    winner: null
+  });
 }
 
 /**
@@ -49,49 +43,51 @@ export function getInitialState() {
 * @returns {GameState}
 */
 export function applyMove(state, move) {
- var zone = move.zone;
- var cell = move.cell;
+  if (state.gameOver) return state;
 
- if (state.gameOver) {
-   return state;
- }
+  const [zi, zj] = move.zone;
+  const [ci, cj] = move.cell;
 
- var newState = structuredClone(state);
- var zi = zone[0];
- var zj = zone[1];
- var ci = cell[0];
- var cj = cell[1];
+  // 禁止在已锁定小棋盘落子
+  if (state.zoneWinners[zi][zj]) return state;
 
- if (newState.board[zi][zj][ci][cj]) {
-   return state;
- }
+  // If cell is occupied, return state
+  if (R.path([zi, zj, ci, cj], state.board)) return state;
 
- newState.board[zi][zj][ci][cj] = newState.currentPlayer;
+  // Place mark
+  const newBoard = R.over(
+    R.lensPath([zi, zj, ci, cj]),
+    R.always(state.currentPlayer),
+    state.board
+  );
 
- if (!newState.zoneWinners[zi][zj]) {
-   var winner = checkWinner(newState.board[zi][zj]);
-   if (winner) {
-     newState.zoneWinners[zi][zj] = winner;
-   }
- }
+  // Check if small board is won
+  const zoneWinner = state.zoneWinners[zi][zj]
+    ? state.zoneWinners[zi][zj]
+    : checkWinner(newBoard[zi][zj]);
 
- var gameWinner = checkWinner(newState.zoneWinners);
- if (gameWinner) {
-   newState.gameOver = true;
-   newState.winner = gameWinner;
- }
+  const newZoneWinners = R.assocPath(
+    [zi, zj],
+    zoneWinner || null,
+    state.zoneWinners
+  );
 
- var nextZi = ci;
- var nextZj = cj;
- if (newState.zoneWinners[nextZi][nextZj]) {
-   newState.nextZone = null;
- } else {
-   newState.nextZone = [nextZi, nextZj];
- }
+  // Check if game is won
+  const gameWinner = checkWinner(newZoneWinners);
 
- newState.currentPlayer = newState.currentPlayer === "X" ? "O" : "X";
+  // Next zone logic
+  const nextZi = ci, nextZj = cj;
+  const nextZone =
+    newZoneWinners[nextZi][nextZj] ? null : [nextZi, nextZj];
 
- return newState;
+  return {
+    board: newBoard,
+    currentPlayer: state.currentPlayer === "X" ? "O" : "X",
+    nextZone,
+    zoneWinners: newZoneWinners,
+    gameOver: Boolean(gameWinner),
+    winner: gameWinner || null
+  };
 }
 
 /**
@@ -100,22 +96,17 @@ export function applyMove(state, move) {
 * @returns {Player|null}
 */
 export function checkWinner(board) {
- var lines = [];
+  // All lines: rows, columns, diagonals
+  const rows = board;
+  const cols = R.transpose(board);
+  const diag1 = [board[0][0], board[1][1], board[2][2]];
+  const diag2 = [board[0][2], board[1][1], board[2][0]];
+  const lines = R.concat(R.concat(rows, cols), [diag1, diag2]);
 
- for (var i = 0; i < 3; i++) {
-   lines.push(board[i]);
-   lines.push([board[0][i], board[1][i], board[2][i]]);
- }
-
- lines.push([board[0][0], board[1][1], board[2][2]]);
- lines.push([board[0][2], board[1][1], board[2][0]]);
-
- for (var j = 0; j < lines.length; j++) {
-   var line = lines[j];
-   if (line[0] && line[0] === line[1] && line[1] === line[2]) {
-     return line[0];
-   }
- }
-
- return null;
+  // Find a line where all three are equal and not null
+  const winner = R.find(
+    line => line[0] && R.all(R.equals(line[0]), line),
+    lines
+  );
+  return winner ? winner[0] : null;
 }

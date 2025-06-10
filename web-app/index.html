@@ -6,21 +6,33 @@
     <link rel="stylesheet" href="default.css" />
   </head>
   <body>
+    <div id="gameTitle">Ultimate Tic Tac Toe</div>
     <div class="container">
       <div class="sidebar left">
-        <h2>Player X</h2>
-        <p id="playerXStats"></p>
+        <div class="profile-pic player-x-avatar">X</div>
+        <h2><span class="player-x-badge">X</span> Player X</h2>
+        <div class="stats-block">
+          <p id="playerXStats"></p>
+        </div>
       </div>
 
       <main class="game-area">
-        <h1 id="title">Ultimate Tic Tac Toe</h1>
+        <div id="title"></div>
         <div id="status"></div>
+        <div class="controls">
+          <button id="undoBtn">Undo</button>
+          <button id="randomBtn">Random Move</button>
+          <button id="resetBtn">New Game</button>
+        </div>
         <div id="board" class="board"></div>
       </main>
 
       <div class="sidebar right">
-        <h2>Player O</h2>
-        <p id="playerOStats"></p>
+        <div class="profile-pic player-o-avatar">O</div>
+        <h2>Player O <span class="player-o-badge">O</span></h2>
+        <div class="stats-block">
+          <p id="playerOStats"></p>
+        </div>
       </div>
     </div>
 
