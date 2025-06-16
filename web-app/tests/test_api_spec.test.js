@@ -1,7 +1,7 @@
 /* eslint-env mocha */
 
 import * as assert from "node:assert";
-import { getInitialState, applyMove, checkWinner } from "../UltimateTTT.js";
+import { getInitialState, applyMove, checkWinner, isDraw, isZoneFull } from "../UltimateTTT.js";
 
 describe("UltimateTTT API Spec", function () {
   it("Initial state should have X as current player", function () {
@@ -43,5 +43,22 @@ describe("UltimateTTT API Spec", function () {
     ];
     var winner = checkWinner(board);
     assert.strictEqual(winner, null);
+  });
+
+  it("Should detect a global draw when all zones are full and no winner", function () {
+    // Construct a zoneWinners board with no 3-in-a-row, all zones locked
+    const zoneWinners = [
+      ["X", "O", "X"],
+      ["O", "X", "O"],
+      ["O", "X", "O"]
+    ];
+    // Fill all zones (simulate full board)
+    const board = Array.from({ length: 3 }, (_, zi) =>
+      Array.from({ length: 3 }, (_, zj) =>
+        Array.from({ length: 3 }, () => Array(3).fill("X"))
+      )
+    );
+    // No winner in zoneWinners, but all zones are locked/full
+    assert.strictEqual(isDraw(zoneWinners, board), true);
   });
 });
