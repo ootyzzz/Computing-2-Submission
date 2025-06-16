@@ -28,8 +28,16 @@
       </main>
 
       <div class="sidebar right">
-        <div class="profile-pic player-o-avatar">O</div>
+        <div class="profile-pic player-o-avatar" id="playerOAvatar">O
+          <div id="aiBubble" class="ai-bubble" style="display:none;"></div>
+        </div>
         <h2>Player O <span class="player-o-badge">O</span></h2>
+        <div style="margin: 0.5em 0 1em 0; text-align: center;">
+          <label style="font-size:1em;cursor:pointer;">
+            <input type="checkbox" id="aiToggle" style="vertical-align:middle; margin-right:0.4em;">
+            AI
+          </label>
+        </div>
         <div class="stats-block">
           <p id="playerOStats"></p>
         </div>

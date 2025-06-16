@@ -15,6 +15,12 @@ const playerOStats = document.getElementById("playerOStats");
 const undoBtn = document.getElementById("undoBtn");
 const randomBtn = document.getElementById("randomBtn");
 const resetBtn = document.getElementById("resetBtn");
+const aiToggle = document.getElementById("aiToggle");
+const aiBubble = document.getElementById("aiBubble");
+
+let aiEnabled = false;
+let aiThinkingTimeout = null;
+let lastMove = null;
 
 function getWinLine(zoneWinners, winner) {
   const lines = [
@@ -152,6 +158,16 @@ function renderBoard(board, zoneWinners, nextZone, winLine) {
             cellDiv.textContent = mark;
             cellDiv.classList.add(mark === "X" ? "cell-x" : "cell-o");
           }
+          // 高亮最新落子
+          if (
+            lastMove &&
+            lastMove.zone[0] === i &&
+            lastMove.zone[1] === j &&
+            lastMove.cell[0] === m &&
+            lastMove.cell[1] === n
+          ) {
+            cellDiv.classList.add("cell-last");
+          }
 
           // 禁止落子的cell加.disabled
           let restrict = false;
@@ -205,6 +221,50 @@ function renderStats() {
   `;
 }
 
+function simpleAIMove(state) {
+  // Pick random available move (can be improved)
+  const moves = getAvailableMoves(state);
+  if (moves.length === 0) {
+    return null;
+  }
+  return moves[Math.floor(Math.random() * moves.length)];
+}
+
+function showAIBubble(show) {
+  if (aiBubble) {
+    aiBubble.style.display = show ? "flex" : "none";
+    aiBubble.textContent = show ? "thinking..." : "";
+  }
+}
+
+function maybeTriggerAI() {
+  if (
+    aiEnabled &&
+    !state.gameOver &&
+    state.currentPlayer === "O"
+  ) {
+    showAIBubble(true);
+    if (aiThinkingTimeout) {
+      clearTimeout(aiThinkingTimeout);
+    }
+    aiThinkingTimeout = setTimeout(() => {
+      showAIBubble(false);
+      const move = simpleAIMove(state);
+      if (move) {
+        onCellClick({ currentTarget: { dataset: {
+          zi: move.zone[0], zj: move.zone[1], ci: move.cell[0], cj: move.cell[1]
+        }}});
+      }
+    }, 3000);
+  } else {
+    showAIBubble(false);
+    if (aiThinkingTimeout) {
+      clearTimeout(aiThinkingTimeout);
+      aiThinkingTimeout = null;
+    }
+  }
+}
+
 function render() {
   let winLine = null;
   if (state.gameOver && state.winner) {
@@ -231,6 +291,8 @@ function render() {
   if (undoBtn) undoBtn.disabled = history.length <= 1;
   if (randomBtn) randomBtn.disabled = !!state.gameOver;
   if (resetBtn) resetBtn.disabled = false; // New Game永远可用
+
+  maybeTriggerAI();
 }
 
 function onCellClick(event) {
@@ -254,6 +316,7 @@ function onCellClick(event) {
   if (next !== state) {
     state = next;
     history = R.append(state, history);
+    lastMove = { zone: [zi, zj], cell: [ci, cj] }; // 记录最新落子
 
     // 记录stats历史
     if (state.gameOver) {
@@ -309,8 +372,16 @@ if (resetBtn) {
     state = getInitialState();
     history = [state];
     statsHistory = [];
+    lastMove = null; // 清除最新落子
     render();
   };
+}
+
+if (aiToggle) {
+  aiToggle.addEventListener("change", function () {
+    aiEnabled = aiToggle.checked;
+    maybeTriggerAI();
+  });
 }
 
 window.addEventListener("load", render);
