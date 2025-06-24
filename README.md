@@ -1,5 +1,5 @@
 # Computing 2 Coursework Submission.
-This version is ready for peer review except comments are partly Chinese. LMK if u need help:) 
+This version is ready for peer review. 
 
 **CID**: 02376158
 
