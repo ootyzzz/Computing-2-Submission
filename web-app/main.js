@@ -46,7 +46,7 @@ function isZoneFull(board, zoneWinner, zi, zj) {
 
 function getAvailableMoves(state) {
   const moves = [];
-  // 判断目标zone是否可下
+  // Check if the target zone is restricted
   let restrictToZone = false;
   if (state.nextZone) {
     const [zi, zj] = state.nextZone;
@@ -71,7 +71,7 @@ function getAvailableMoves(state) {
 }
 
 function isDraw(zoneWinners, board) {
-  // 所有zone都被锁定且没有winner
+  // All zones are locked/full and there is no winner
   for (let i = 0; i < 3; ++i) for (let j = 0; j < 3; ++j)
     if (!zoneWinners[i][j] && !isZoneFull(board, zoneWinners[i][j], i, j)) return false;
   return !checkWinner(zoneWinners);
@@ -90,7 +90,7 @@ function renderBoard(board, zoneWinners, nextZone, winLine) {
       if (zoneWinners[i][j] === "X") zoneDiv.classList.add("locked-x");
       if (zoneWinners[i][j] === "O") zoneDiv.classList.add("locked-o");
 
-      // 只对未锁定zone变灰
+      // Only non-locked zones are grayed out
       let restrictToZone = false;
       if (nextZone) {
         const [nzi, nzj] = nextZone;
@@ -106,7 +106,7 @@ function renderBoard(board, zoneWinners, nextZone, winLine) {
         }
       }
 
-      // winner后3个zone突出且色块更淡
+      // Highlight the 3 winning zones after game over
       if (winLine && winLine.some(([x, y]) => x === i && y === j)) {
         zoneDiv.classList.add("win-animate");
         zoneDiv.addEventListener("animationend", () => {
@@ -158,7 +158,7 @@ function renderBoard(board, zoneWinners, nextZone, winLine) {
             cellDiv.textContent = mark;
             cellDiv.classList.add(mark === "X" ? "cell-x" : "cell-o");
           }
-          // 高亮最新落子
+          // Highlight the last move
           if (
             lastMove &&
             lastMove.zone[0] === i &&
@@ -169,7 +169,7 @@ function renderBoard(board, zoneWinners, nextZone, winLine) {
             cellDiv.classList.add("cell-last");
           }
 
-          // 禁止落子的cell加.disabled
+          // Add .disabled to cells that cannot be played
           let restrict = false;
           if (zoneWinners[i][j]) restrict = true;
           else if (nextZone) {
@@ -181,7 +181,7 @@ function renderBoard(board, zoneWinners, nextZone, winLine) {
           if (restrict) {
             cellDiv.classList.add("disabled");
           } else {
-            // 落子预览
+            // Show move preview on hover
             cellDiv.addEventListener("mouseenter", function () {
               if (!cellDiv.textContent) {
                 const preview = document.createElement("div");
@@ -222,7 +222,7 @@ function renderStats() {
 }
 
 function simpleAIMove(state) {
-  // Pick random available move (can be improved)
+  // Pick a random available move (can be improved)
   const moves = getAvailableMoves(state);
   if (moves.length === 0) {
     return null;
@@ -255,7 +255,7 @@ function maybeTriggerAI() {
           zi: move.zone[0], zj: move.zone[1], ci: move.cell[0], cj: move.cell[1]
         }}});
       }
-    }, 3000);
+    }, 2000);
   } else {
     showAIBubble(false);
     if (aiThinkingTimeout) {
@@ -287,10 +287,10 @@ function render() {
   }
   renderStats();
 
-  // 按钮可用性
+  // Button enable/disable state
   if (undoBtn) undoBtn.disabled = history.length <= 1;
   if (randomBtn) randomBtn.disabled = !!state.gameOver;
-  if (resetBtn) resetBtn.disabled = false; // New Game永远可用
+  if (resetBtn) resetBtn.disabled = false; // New Game is always enabled
 
   maybeTriggerAI();
 }
@@ -302,7 +302,7 @@ function onCellClick(event) {
   const ci = Number(event.currentTarget.dataset.ci);
   const cj = Number(event.currentTarget.dataset.cj);
 
-  // 判断目标zone是否可下
+  // Check if the target zone is restricted
   let restrictToZone = false;
   if (state.nextZone) {
     const [nzi, nzj] = state.nextZone;
@@ -316,9 +316,9 @@ function onCellClick(event) {
   if (next !== state) {
     state = next;
     history = R.append(state, history);
-    lastMove = { zone: [zi, zj], cell: [ci, cj] }; // 记录最新落子
+    lastMove = { zone: [zi, zj], cell: [ci, cj] }; // Record the last move
 
-    // 记录stats历史
+    // Save stats history if game is over
     if (state.gameOver) {
       statsHistory.push({
         x: Stats.get_statistics(["X"])[ "X" ],
@@ -337,12 +337,11 @@ function onCellClick(event) {
 if (undoBtn) {
   undoBtn.onclick = function () {
     if (history.length > 1) {
-      // 如果撤回的是一个终局，撤回stats
+      // If undoing a finished game, also undo stats
       if (history[history.length - 1].gameOver && statsHistory.length > 0) {
-        // 恢复上一次的 Elo/stats
+        // Restore previous Elo/stats
         const prevStats = statsHistory.pop();
         if (prevStats) {
-          // 直接覆盖 Stats 模块的 player_statistics
           Object.assign(Stats.get_statistics(["X"])[ "X" ], prevStats.x);
           Object.assign(Stats.get_statistics(["O"])[ "O" ], prevStats.o);
         }
@@ -372,7 +371,7 @@ if (resetBtn) {
     state = getInitialState();
     history = [state];
     statsHistory = [];
-    lastMove = null; // 清除最新落子
+    lastMove = null; // Clear last move
     render();
   };
 }
@@ -384,4 +383,11 @@ if (aiToggle) {
   });
 }
 
+window.addEventListener("load", function() {
+  if (aiToggle) {
+    aiToggle.checked = false;
+    aiEnabled = false;
+  }
+  render();
+});
 window.addEventListener("load", render);
