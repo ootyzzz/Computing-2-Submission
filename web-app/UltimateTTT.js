@@ -109,12 +109,17 @@ export function isZoneFull(board, zoneWinners, zi, zj) {
  * @returns {boolean}
  */
 export function isDraw(zoneWinners, board) {
-  const allZonesFull = R.all(
+  // If all zones are either won or full, and there is no winner, it's a draw
+  const allZonesFullOrLocked = R.all(
     (row, zi) => R.all(
-      (winner, zj) => winner || isZoneFull(board, zoneWinners, zi, zj),
+      (winner, zj) =>
+        winner || R.all(
+          r => R.all(cell => cell !== null, r),
+          board[zi][zj]
+        ),
       row
     ),
     zoneWinners
   );
-  return allZonesFull && !checkWinner(zoneWinners);
+  return allZonesFullOrLocked && !checkWinner(zoneWinners);
 }

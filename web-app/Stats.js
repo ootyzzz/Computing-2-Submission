@@ -139,4 +139,19 @@ Stats.record_game = function (player_1, player_2, result) {
     return Stats.get_statistics([player_1, player_2]);
 };
 
+/**
+ * Custom addition (not in Freddie Page's original):
+ * Get the Elo ratio of X to O. If O's Elo is 0, returns Infinity.
+ * @returns {number} ratio (X Elo / O Elo)
+ */
+Stats.get_elo_ratio = function () {
+    const stats = Stats.get_statistics(["X", "O"]);
+    const x = stats.X.elo;
+    const o = stats.O.elo;
+    if (o === 0) {
+        return Infinity;
+    }
+    return x / o;
+};
+
 export default Object.freeze(Stats);

@@ -17,10 +17,12 @@ const randomBtn = document.getElementById("randomBtn");
 const resetBtn = document.getElementById("resetBtn");
 const aiToggle = document.getElementById("aiToggle");
 const aiBubble = document.getElementById("aiBubble");
+const aiBrainBar = document.getElementById("aiBrainBar");
 
 let aiEnabled = false;
 let aiThinkingTimeout = null;
 let lastMove = null;
+let aiThinkingStart = null;
 
 function getWinLine(zoneWinners, winner) {
   const lines = [
@@ -221,20 +223,111 @@ function renderStats() {
   `;
 }
 
-function simpleAIMove(state) {
-  // Pick a random available move (can be improved)
+/**
+ * AI implementation (custom, not in Freddie Page's original):
+ * Uses minimax search with depth parameter.
+ * Depth is determined by the Elo ratio (X Elo / O Elo):
+ *   - 0 < ratio ≤ 1: depth = 3
+ *   - 1 < ratio ≤ 2: depth = 4
+ *   - ratio > 2:     depth = 5
+ * The ratio is computed via Stats.get_elo_ratio().
+ * The search is not optimal but follows standard minimax with simple evaluation.
+ */
+
+function evaluateState(state) {
+  // Simple evaluation: +100 for O win, -100 for X win, else 0
+  if (state.winner === "O") return 100;
+  if (state.winner === "X") return -100;
+  // Heuristic: count O's zones - X's zones
+  let oCount = 0, xCount = 0;
+  for (let i = 0; i < 3; ++i) for (let j = 0; j < 3; ++j) {
+    if (state.zoneWinners[i][j] === "O") oCount++;
+    if (state.zoneWinners[i][j] === "X") xCount++;
+  }
+  return (oCount - xCount) * 10;
+}
+
+function getAIDepth() {
+  // Custom: use Stats.get_elo_ratio() to determine depth
+  const ratio = Stats.get_elo_ratio();
+  if (ratio <= 1) return 4;
+  if (ratio <= 2) return 5;
+  return 6;
+}
+
+function minimax(state, depth, maximizingPlayer) {
+  if (depth === 0 || state.gameOver) {
+    return { score: evaluateState(state) };
+  }
   const moves = getAvailableMoves(state);
   if (moves.length === 0) {
-    return null;
+    return { score: evaluateState(state) };
   }
+  let bestMove = null;
+  if (maximizingPlayer) {
+    let maxEval = -Infinity;
+    for (const move of moves) {
+      const nextState = applyMove(state, move);
+      const evalResult = minimax(nextState, depth - 1, false);
+      if (evalResult.score > maxEval) {
+        maxEval = evalResult.score;
+        bestMove = move;
+      }
+    }
+    return { score: maxEval, move: bestMove };
+  } else {
+    let minEval = Infinity;
+    for (const move of moves) {
+      const nextState = applyMove(state, move);
+      const evalResult = minimax(nextState, depth - 1, true);
+      if (evalResult.score < minEval) {
+        minEval = evalResult.score;
+        bestMove = move;
+      }
+    }
+    return { score: minEval, move: bestMove };
+  }
+}
+
+function simpleAIMove(state) {
+  // Use minimax with depth determined by Elo ratio
+  const depth = getAIDepth();
+  const result = minimax(state, depth, true);
+  if (result && result.move) {
+    return result.move;
+  }
+  // Fallback: random
+  const moves = getAvailableMoves(state);
+  if (moves.length === 0) return null;
   return moves[Math.floor(Math.random() * moves.length)];
 }
 
-function showAIBubble(show) {
+function showAIBubble(show, hard = false) {
   if (aiBubble) {
     aiBubble.style.display = show ? "flex" : "none";
-    aiBubble.textContent = show ? "thinking..." : "";
+    aiBubble.textContent = show ? (hard ? "thinking hard..." : "thinking...") : "";
+    aiBubble.classList.toggle("ai-bubble-hard", !!hard);
   }
+}
+
+function updateAIBrainBar() {
+  if (!aiBrainBar) return;
+  const depth = getAIDepth();
+  let level = 1;
+  if (depth === 4) level = 1;
+  else if (depth === 5) level = 2;
+  else level = 3;
+  aiBrainBar.innerHTML = `
+    <div class="ai-brain-label">AI Brain</div>
+    <div class="ai-brain-bar-bg">
+      <div class="ai-brain-bar-fill" style="width:${level * 33.33}%;"></div>
+    </div>
+    <div class="ai-brain-levels">
+      <span${level === 1 ? ' class="active"' : ''}>Low</span>
+      <span${level === 2 ? ' class="active"' : ''}>Med</span>
+      <span${level === 3 ? ' class="active"' : ''}>High</span>
+    </div>
+  `;
 }
 
 function maybeTriggerAI() {
@@ -243,21 +336,27 @@ function maybeTriggerAI() {
     !state.gameOver &&
     state.currentPlayer === "O"
   ) {
-    showAIBubble(true);
+    aiThinkingStart = Date.now();
+    showAIBubble(true, false);
     if (aiThinkingTimeout) {
       clearTimeout(aiThinkingTimeout);
     }
+    // After 4s, if still thinking, show "thinking hard..."
     aiThinkingTimeout = setTimeout(() => {
-      showAIBubble(false);
+      showAIBubble(true, true);
+    }, 5000);
+    // After 5s (AI move), hide bubble and move
+    aiThinkingTimeout = setTimeout(() => {
+      showAIBubble(false, false);
       const move = simpleAIMove(state);
       if (move) {
         onCellClick({ currentTarget: { dataset: {
           zi: move.zone[0], zj: move.zone[1], ci: move.cell[0], cj: move.cell[1]
-        }}});
+        } } });
       }
-    }, 2000);
+    }, 6000);
   } else {
-    showAIBubble(false);
+    showAIBubble(false, false);
     if (aiThinkingTimeout) {
       clearTimeout(aiThinkingTimeout);
       aiThinkingTimeout = null;
@@ -286,6 +385,7 @@ function render() {
     statusElement.innerHTML = "";
   }
   renderStats();
+  updateAIBrainBar();
 
   // Button enable/disable state
   if (undoBtn) undoBtn.disabled = history.length <= 1;
@@ -379,15 +479,59 @@ if (resetBtn) {
 if (aiToggle) {
   aiToggle.addEventListener("change", function () {
     aiEnabled = aiToggle.checked;
+    updateAIBrainBar();
     maybeTriggerAI();
   });
 }
+
+// Guide modal logic
+const guideModal = document.createElement("div");
+guideModal.id = "guideModal";
+guideModal.innerHTML = `
+  <div class="guide-modal-content">
+    <button id="closeGuideBtn" class="guide-close-btn">&times;</button>
+    <h2>Welcome to Ultimate Tic-Tac-Toe!</h2>
+    <ul>
+      <li>Click a cell to make your move. Each move determines the next zone for your opponent.</li>
+      <li>Win a small board to claim that zone. Win three zones in a row to win the game!</li>
+      <li>Enable <b>AI</b> on the right to play against the computer. The AI "brain" bar shows its strength.</li>
+      <li>Use <b>Undo</b>, <b>Random Move</b>, or <b>New Game</b> at any time.</li>
+      <li>Player stats and Elo are tracked on both sides.</li>
+      <li>Click the <b>?</b> button in the lower left for help at any time.</li>
+    </ul>
+    <div style="text-align:center;margin-top:1.5em;">
+      <button id="closeGuideBtn2" class="guide-ok-btn">OK</button>
+    </div>
+  </div>
+`;
+document.body.appendChild(guideModal);
+
+function showGuideModal(show) {
+  guideModal.style.display = show ? "flex" : "none";
+}
+function setupGuideModal() {
+  guideModal.style.display = "flex";
+  document.getElementById("closeGuideBtn").onclick = () => showGuideModal(false);
+  document.getElementById("closeGuideBtn2").onclick = () => showGuideModal(false);
+}
+setupGuideModal();
+
+// Floating help button
+const helpBtn = document.createElement("button");
+helpBtn.id = "helpBtn";
+helpBtn.title = "Show Guide";
+helpBtn.innerHTML = "?";
+document.body.appendChild(helpBtn);
+helpBtn.onclick = () => showGuideModal(true);
 
 window.addEventListener("load", function() {
   if (aiToggle) {
     aiToggle.checked = false;
     aiEnabled = false;
   }
+  updateAIBrainBar();
   render();
+  // Show guide only on first load
+  showGuideModal(true);
 });
 window.addEventListener("load", render);
