@@ -1,7 +1,5 @@
 # Computing 2 Coursework Submission.
 
-This version is ready for peer review.
-
 **CID**: 02376158  
 **Name**: Feifan Xia
 
